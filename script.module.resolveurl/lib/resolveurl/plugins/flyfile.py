@@ -24,8 +24,10 @@ from resolveurl.resolver import ResolveUrl, ResolverError
 
 class FlyFileResolver(ResolveUrl):
     name = 'FlyFile'
-    domains = ['flyfile.app']
-    pattern = r'(?://|\.)(flyfile\.app)/(?:embed|v)/([A-Za-z0-9]+)'
+    # flyf.lat is a newer front-end skin; both share the api.flyfile.app backend.
+    domains = ['flyfile.app', 'flyf.lat']
+    pattern = r'(?://|\.)(flyfile\.app|flyf\.lat)/(?:embed|v)/([A-Za-z0-9]+)'
+    api_host = 'api.flyfile.app'
 
     def get_media_url(self, host, media_id):
         web_url = self.get_url(host, media_id)
@@ -34,7 +36,8 @@ class FlyFileResolver(ResolveUrl):
             'Referer': web_url,
             'Origin': urllib_parse.urljoin(web_url, '/')[:-1]
         }
-        assign_url = 'https://api.{0}/api/streaming/assign/{1}'.format(host, media_id)
+        # The assign backend is always api.flyfile.app regardless of the front domain.
+        assign_url = 'https://{0}/api/streaming/assign/{1}'.format(self.api_host, media_id)
         data = self.net.http_GET(assign_url, headers=headers).json
         if data.get('url') and data.get('token'):
             stream_url = '{0}/hls/{1}/master.m3u8'.format(
@@ -46,4 +49,5 @@ class FlyFileResolver(ResolveUrl):
         raise ResolverError('File Not Found or Removed')
 
     def get_url(self, host, media_id):
-        return self._default_get_url(host, media_id, template='https://{host}/embed/{media_id}')
+        template = 'https://{host}/v/{media_id}' if host == 'flyf.lat' else 'https://{host}/embed/{media_id}'
+        return self._default_get_url(host, media_id, template=template)
